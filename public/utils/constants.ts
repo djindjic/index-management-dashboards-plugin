@@ -31,6 +31,7 @@ export const ROUTES = Object.freeze({
   INDEX_POLICIES: "/index-policies",
   POLICY_DETAILS: "/policy-details",
   INDICES: "/indices",
+  PREVIEW_INDICES: "/preview-indices",
   ROLLUPS: "/rollups",
   CREATE_ROLLUP: "/create-rollup",
   EDIT_ROLLUP: "/edit-rollup",
@@ -54,6 +55,7 @@ export const ROUTES = Object.freeze({
 export const BREADCRUMBS = Object.freeze({
   INDEX_MANAGEMENT: { text: "Index Management", href: "#/" },
   INDICES: { text: "Indices", href: `#${ROUTES.INDICES}` },
+  VIEW_INDICES: { text: "Preview Indices", href: `#${ROUTES.VIEW_INDICES}` },
   INDEX_POLICIES: { text: "Index policies", href: `#${ROUTES.INDEX_POLICIES}` },
   MANAGED_INDICES: { text: "Managed indices", href: `#${ROUTES.MANAGED_INDICES}` },
   EDIT_POLICY: { text: "Edit policy" },
@@ -122,7 +124,7 @@ export const browseIndicesCols = [
     width: "100%",
     truncateText: true,
     sortable: true,
-  }
+  },
 ];
 
 export const restoreIndicesCols = [
@@ -137,6 +139,6 @@ export const restoreIndicesCols = [
     field: "restore_status",
     name: "Restore status",
     width: "25%",
-    sortable: true
-  }
+    sortable: true,
+  },
 ];

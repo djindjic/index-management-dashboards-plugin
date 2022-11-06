@@ -11,6 +11,7 @@ import { CoreStart } from "opensearch-dashboards/public";
 import Policies from "../Policies";
 import ManagedIndices from "../ManagedIndices";
 import Indices from "../Indices";
+import ViewIndices from "../PreviewIndices";
 import CreatePolicy from "../CreatePolicy";
 import VisualCreatePolicy from "../VisualCreatePolicy";
 import ChangePolicy from "../ChangePolicy";
@@ -39,6 +40,7 @@ enum Navigation {
   IndexPolicies = "Index Policies",
   ManagedIndices = "Managed Indices",
   Indices = "Indices",
+  PreviewIndices = "Preview Indices",
   Rollups = "Rollup Jobs",
   Transforms = "Transform Jobs",
   SnapshotManagement = "Snapshot Management",
@@ -51,6 +53,7 @@ enum Pathname {
   IndexPolicies = "/index-policies",
   ManagedIndices = "/managed-indices",
   Indices = "/indices",
+  PreviewIndices = "/preview-indices",
   Rollups = "/rollups",
   Transforms = "/transforms",
   Snapshots = "/snapshots",
@@ -118,6 +121,12 @@ export default class Main extends Component<MainProps, object> {
             id: 5,
             href: `#${Pathname.Transforms}`,
             isSelected: pathname === Pathname.Transforms,
+          },
+          {
+            name: Navigation.PreviewIndices,
+            id: 6,
+            href: `#${Pathname.PreviewIndices}`,
+            isSelected: pathname === Pathname.PreviewIndices,
           },
         ],
       },
@@ -301,6 +310,14 @@ export default class Main extends Component<MainProps, object> {
                             render={(props: RouteComponentProps) => (
                               <div style={ROUTE_STYLE}>
                                 <Indices {...props} indexService={services.indexService} />
+                              </div>
+                            )}
+                          />
+                          <Route
+                            path={ROUTES.VIEW_INDICES}
+                            render={(props: RouteComponentProps) => (
+                              <div style={ROUTE_STYLE}>
+                                <ViewIndices {...props} indexService={services.indexService} rollupService={services.rollupService} />
                               </div>
                             )}
                           />
