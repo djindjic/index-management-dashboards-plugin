@@ -314,7 +314,7 @@ export default class Main extends Component<MainProps, object> {
                             )}
                           />
                           <Route
-                            path={ROUTES.VIEW_INDICES}
+                            path={ROUTES.PREVIEW_INDICES}
                             render={(props: RouteComponentProps) => (
                               <div style={ROUTE_STYLE}>
                                 <ViewIndices {...props} indexService={services.indexService} rollupService={services.rollupService} />
