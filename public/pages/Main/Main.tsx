@@ -11,7 +11,7 @@ import { CoreStart } from "opensearch-dashboards/public";
 import Policies from "../Policies";
 import ManagedIndices from "../ManagedIndices";
 import Indices from "../Indices";
-import ViewIndices from "../PreviewIndices";
+import PreviewIndices from "../PreviewIndices";
 import CreatePolicy from "../CreatePolicy";
 import VisualCreatePolicy from "../VisualCreatePolicy";
 import ChangePolicy from "../ChangePolicy";
@@ -317,7 +317,7 @@ export default class Main extends Component<MainProps, object> {
                             path={ROUTES.PREVIEW_INDICES}
                             render={(props: RouteComponentProps) => (
                               <div style={ROUTE_STYLE}>
-                                <ViewIndices {...props} indexService={services.indexService} rollupService={services.rollupService} />
+                                <PreviewIndices {...props} indexService={services.indexService} rollupService={services.rollupService} />
                               </div>
                             )}
                           />
