@@ -134,7 +134,7 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
           ""
         );
 
-        console.log(searchIndexResponse);
+        console.log("a", searchIndexResponse);
 
         for (let i = 0; i < searchIndexResponse.response.totalResults; i++) {
           let row = {};
