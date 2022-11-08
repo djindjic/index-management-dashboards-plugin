@@ -96,4 +96,10 @@ export default class IndexService {
     const response = (await this.httpClient.get(url, { query: queryObject })) as ServerResponse<GetPoliciesResponse>;
     return response;
   };
+
+  searchIndexData = async (index: string, queryObject: object, body: string): Promise<ServerResponse<any>> => {
+    const url = `..${NODE_API.SEARCH_INDEX_DATA}`;
+    const response = ((await this.httpClient.get(url, { query: { ...queryObject, index } })) as unknown) as ServerResponse<any>;
+    return response;
+  };
 }

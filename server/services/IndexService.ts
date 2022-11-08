@@ -13,6 +13,7 @@ import {
   ExplainResponse,
   ExplainAPIManagedIndexMetaData,
   IndexToDataStream,
+  SearchIndexResponse,
 } from "../models/interfaces";
 import { ServerResponse } from "../models/types";
 import {
@@ -195,6 +196,83 @@ export default class IndexService {
       });
     } catch (err) {
       console.error("Index Management - IndexService - editRolloverAlias", err);
+      return response.custom({
+        statusCode: 200,
+        body: {
+          ok: false,
+          error: err.message,
+        },
+      });
+    }
+  };
+
+  searchIndexData = async (
+    context: RequestHandlerContext,
+    request: OpenSearchDashboardsRequest,
+    response: OpenSearchDashboardsResponseFactory
+  ): Promise<IOpenSearchDashboardsResponse<ServerResponse<SearchIndexResponse>>> => {
+    try {
+      // @ts-ignore
+      const { from, size, index } = request.query as {
+        from: string;
+        size: string;
+        search: string;
+        sortField: string;
+        sortDirection: string;
+        terms?: string[];
+        indices?: string[];
+        dataStreams?: string[];
+        showDataStreams: boolean;
+      };
+
+      const { callAsCurrentUser: callWithRequest } = this.osDriver.asScoped(request);
+
+      const indicesResponse = await callWithRequest("search", {
+        index,
+        size: 10,
+        from: 0,
+        body: {
+          query: {
+            bool: {
+              must: [{ match: { FlightNum: { query: "9HY9SWR" } } }],
+            },
+          },
+        },
+      });
+
+      console.log("aaaaaaaaaaa", indicesResponse);
+
+      // _cat doesn't support pagination, do our own in server pagination to at least reduce network bandwidth
+      const fromNumber = parseInt(from, 10);
+      const sizeNumber = parseInt(size, 10);
+      const paginatedIndices = indicesResponse.hits.hits.slice(fromNumber, fromNumber + sizeNumber);
+
+      // NOTE: Cannot use response.ok due to typescript type checking
+      return response.custom({
+        statusCode: 200,
+        body: {
+          ok: true,
+          response: {
+            results: paginatedIndices.map((i) => i._source),
+            totalResults: indicesResponse.hits.total.value,
+          },
+        },
+      });
+    } catch (err) {
+      // Throws an error if there is no index matching pattern
+      if (err.statusCode === 404 && err.body.error.type === "index_not_found_exception") {
+        return response.custom({
+          statusCode: 200,
+          body: {
+            ok: true,
+            response: {
+              results: [],
+              totalResults: 0,
+            },
+          },
+        });
+      }
+      console.error("Index Management - IndexService - searchIndexData:", err);
       return response.custom({
         statusCode: 200,
         body: {

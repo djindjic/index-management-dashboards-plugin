@@ -12,7 +12,7 @@ import RollupService from "../../../../services/RollupService";
 import { BREADCRUMBS } from "../../../../utils/constants";
 import { getErrorMessage } from "../../../../utils/helpers";
 import { CoreServicesContext } from "../../../../components/core_services";
-import { EuiComboBox, EuiFlexGroup, EuiFlexItem } from "@elastic/eui";
+import { EuiComboBox, EuiFlexGroup, EuiFlexItem, EuiSearchBar, Query } from "@elastic/eui";
 import { FieldItem } from "../../../../../models/interfaces";
 import IndexPreview from "../../components/IndexPreview";
 import { parseFieldOptions, compareFieldItem } from "../../utils/helpers";
@@ -48,6 +48,8 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
       mappings: [],
       fields: [],
       allMappings: [],
+
+      query: Query.parse(""),
     };
 
     this.getIndices = _.debounce(this.getIndices, 500, { leading: true });
@@ -57,6 +59,14 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     this.context.chrome.setBreadcrumbs([BREADCRUMBS.INDEX_MANAGEMENT, BREADCRUMBS.INDICES]);
     await this.getIndices();
   }
+
+  // async componentDidUpdate(prevProps: IndicesProps, prevState: IndicesState) {
+  //   const prevQuery = SearchIndices.getQueryObjectFromState(prevState);
+  //   const currQuery = SearchIndices.getQueryObjectFromState(this.state);
+  //   if (!_.isEqual(prevQuery, currQuery)) {
+  //     await this.getIndices();
+  //   }
+  // }
 
   getIndices = async (): Promise<void> => {
     this.setState({ isLoading: true });
@@ -88,11 +98,12 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
 
   onIndexChange = async (value) => {
     this.setState({ sourceIndex: value });
+
     const srcIndex = value[0].value;
 
     if (!srcIndex.length) return;
     try {
-      const { rollupService } = this.props;
+      const { rollupService, indexService } = this.props;
       const response = await rollupService.getMappings(srcIndex);
       if (response.ok) {
         let allMappings: FieldItem[][] = [];
@@ -112,14 +123,28 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
 
         const raw_data = [];
 
-        for (let i = 1; i < 100; i++) {
+        const returnLimit = 100;
+
+        const searchIndexResponse = await indexService.searchIndexData(
+          srcIndex,
+          {
+            from: 0,
+            size: returnLimit,
+          },
+          ""
+        );
+
+        console.log(searchIndexResponse);
+
+        for (let i = 0; i < searchIndexResponse.response.totalResults; i++) {
           let row = {};
           columns.forEach((column) => {
-            row = { ...row, [column.id]: "test" };
+            row = { ...row, [column.id]: searchIndexResponse.response.results[i][column.id] };
           });
           raw_data.push(row);
         }
 
+        console.log(raw_data);
         this.setState({ columns, raw_data });
       } else {
         this.context.notifications.toasts.addDanger(`Could not load fields: ${response.error}`);
@@ -131,6 +156,24 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
 
   render() {
     const { isLoading, indices, columns, raw_data, sourceIndex } = this.state;
+
+    const schema = {
+      strict: true,
+      fields: {
+        indices: {
+          type: "string",
+        },
+        data_streams: {
+          type: "string",
+        },
+      },
+    };
+
+    const filters = undefined;
+
+    const onSearchChange = ({ query, queryText, error }): void => {
+      console.log(query, queryText, error);
+    };
 
     return (
       <div>
@@ -145,6 +188,9 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
                 selectedOptions={sourceIndex}
                 isLoading={isLoading}
               />
+            </EuiFlexItem>
+            <EuiFlexItem>
+              <EuiSearchBar box={{ placeholder: "Search", schema, incremental: true }} onChange={onSearchChange} filters={filters} />
             </EuiFlexItem>
             <EuiFlexItem>{raw_data && raw_data.length > 0 ? <IndexPreview columns={columns} raw_data={raw_data} /> : ""}</EuiFlexItem>
           </EuiFlexGroup>

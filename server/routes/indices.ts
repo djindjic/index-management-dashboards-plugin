@@ -60,4 +60,25 @@ export default function (services: NodeServices, router: IRouter) {
     },
     indexService.editRolloverAlias
   );
+
+  router.get(
+    {
+      path: NODE_API.SEARCH_INDEX_DATA,
+      validate: {
+        query: schema.object({
+          index: schema.string(),
+          from: schema.number(),
+          size: schema.number(),
+          // search: schema.string(),
+          // sortField: schema.string(),
+          // sortDirection: schema.string(),
+          // terms: schema.maybe(schema.any()),
+          // indices: schema.maybe(schema.any()),
+          // dataStreams: schema.maybe(schema.any()),
+          // showDataStreams: schema.boolean(),
+        }),
+      },
+    },
+    indexService.searchIndexData
+  );
 }
