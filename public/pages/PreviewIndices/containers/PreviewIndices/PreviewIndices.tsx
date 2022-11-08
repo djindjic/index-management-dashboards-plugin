@@ -34,6 +34,8 @@ interface IndicesState {
   allMappings: any[];
 }
 
+const returnLimit = 500;
+
 export default class Indices extends Component<IndicesProps, IndicesState> {
   static contextType = CoreServicesContext;
   constructor(props: IndicesProps) {
@@ -59,14 +61,6 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     this.context.chrome.setBreadcrumbs([BREADCRUMBS.INDEX_MANAGEMENT, BREADCRUMBS.INDICES]);
     await this.getIndices();
   }
-
-  // async componentDidUpdate(prevProps: IndicesProps, prevState: IndicesState) {
-  //   const prevQuery = SearchIndices.getQueryObjectFromState(prevState);
-  //   const currQuery = SearchIndices.getQueryObjectFromState(this.state);
-  //   if (!_.isEqual(prevQuery, currQuery)) {
-  //     await this.getIndices();
-  //   }
-  // }
 
   getIndices = async (): Promise<void> => {
     this.setState({ isLoading: true });
@@ -96,9 +90,24 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     }
   };
 
-  onIndexChange = async (value) => {
-    this.setState({ sourceIndex: value });
+  mapDataToTable = (data: unknown[], columns: any[]) => {
+    const raw_data = [];
 
+    if (!data || data.length == 0) {
+      return raw_data;
+    }
+
+    for (let i = 0; i < data.length; i++) {
+      let row = {};
+      columns.forEach((column) => {
+        row = { ...row, [column.id]: data[i][column.id] };
+      });
+      raw_data.push(row);
+    }
+    return raw_data;
+  };
+
+  onIndexChange = async (value) => {
     const srcIndex = value[0].value;
 
     if (!srcIndex.length) return;
@@ -121,31 +130,18 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
           id: field.label,
         }));
 
-        const raw_data = [];
-
-        const returnLimit = 100;
-
         const searchIndexResponse = await indexService.searchIndexData(
           srcIndex,
           {
             from: 0,
             size: returnLimit,
           },
-          ""
+          {}
         );
 
-        console.log("a", searchIndexResponse);
+        const raw_data = this.mapDataToTable(searchIndexResponse.response.results, columns);
 
-        for (let i = 0; i < searchIndexResponse.response.totalResults; i++) {
-          let row = {};
-          columns.forEach((column) => {
-            row = { ...row, [column.id]: searchIndexResponse.response.results[i][column.id] };
-          });
-          raw_data.push(row);
-        }
-
-        console.log(raw_data);
-        this.setState({ columns, raw_data });
+        this.setState({ columns, raw_data, sourceIndex: value });
       } else {
         this.context.notifications.toasts.addDanger(`Could not load fields: ${response.error}`);
       }
@@ -154,25 +150,45 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     }
   };
 
+  onSearchChange = async ({ query, error }): void => {
+    if (error) {
+      return;
+    }
+
+    const q = EuiSearchBar.Query.toESQuery(query);
+
+    const { indexService } = this.props;
+    const { sourceIndex, columns } = this.state;
+
+    if (sourceIndex && query) {
+      const searchIndexResponse = await indexService.searchIndexData(
+        sourceIndex[0].value,
+        {
+          from: 0,
+          size: returnLimit,
+        },
+        {
+          query: q,
+        }
+      );
+
+      const raw_data = this.mapDataToTable(searchIndexResponse.response.results, columns);
+      this.setState({ raw_data });
+    }
+  };
+
   render() {
     const { isLoading, indices, columns, raw_data, sourceIndex } = this.state;
 
+    let fields = {};
+
+    columns.forEach((column) => {
+      fields = { ...fields, [column.id]: { type: "string" } };
+    });
+
     const schema = {
       strict: true,
-      fields: {
-        indices: {
-          type: "string",
-        },
-        data_streams: {
-          type: "string",
-        },
-      },
-    };
-
-    const filters = undefined;
-
-    const onSearchChange = ({ query, queryText, error }): void => {
-      console.log(query, queryText, error);
+      fields,
     };
 
     return (
@@ -190,7 +206,7 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
               />
             </EuiFlexItem>
             <EuiFlexItem>
-              <EuiSearchBar box={{ placeholder: "Search", schema, incremental: true }} onChange={onSearchChange} filters={filters} />
+              <EuiSearchBar box={{ placeholder: "Search", schema, incremental: true }} onChange={this.onSearchChange} />
             </EuiFlexItem>
             <EuiFlexItem>{raw_data && raw_data.length > 0 ? <IndexPreview columns={columns} raw_data={raw_data} /> : ""}</EuiFlexItem>
           </EuiFlexGroup>

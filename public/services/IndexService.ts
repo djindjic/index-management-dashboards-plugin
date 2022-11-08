@@ -97,9 +97,12 @@ export default class IndexService {
     return response;
   };
 
-  searchIndexData = async (index: string, queryObject: object, body: string): Promise<ServerResponse<any>> => {
-    const url = `..${NODE_API.SEARCH_INDEX_DATA}`;
-    const response = ((await this.httpClient.get(url, { query: { ...queryObject, index } })) as unknown) as ServerResponse<any>;
+  searchIndexData = async (index: string, query: HttpFetchQuery, body: object): Promise<ServerResponse<RestoreSnapshotResponse>> => {
+    const url = `..${NODE_API.SEARCH_INDEX_DATA}/${index}`;
+    const response = (await this.httpClient.post(url, {
+      query,
+      body: JSON.stringify(body),
+    })) as ServerResponse<any>;
     return response;
   };
 }

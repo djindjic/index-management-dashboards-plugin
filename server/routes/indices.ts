@@ -61,22 +61,18 @@ export default function (services: NodeServices, router: IRouter) {
     indexService.editRolloverAlias
   );
 
-  router.get(
+  router.post(
     {
-      path: NODE_API.SEARCH_INDEX_DATA,
+      path: `${NODE_API.SEARCH_INDEX_DATA}/{index}`,
       validate: {
-        query: schema.object({
+        params: schema.object({
           index: schema.string(),
+        }),
+        query: schema.object({
           from: schema.number(),
           size: schema.number(),
-          // search: schema.string(),
-          // sortField: schema.string(),
-          // sortDirection: schema.string(),
-          // terms: schema.maybe(schema.any()),
-          // indices: schema.maybe(schema.any()),
-          // dataStreams: schema.maybe(schema.any()),
-          // showDataStreams: schema.boolean(),
         }),
+        body: schema.any(),
       },
     },
     indexService.searchIndexData

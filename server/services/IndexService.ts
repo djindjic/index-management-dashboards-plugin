@@ -212,54 +212,31 @@ export default class IndexService {
     response: OpenSearchDashboardsResponseFactory
   ): Promise<IOpenSearchDashboardsResponse<ServerResponse<SearchIndexResponse>>> => {
     try {
-      // @ts-ignore
-      const { from, size, index } = request.query as {
-        from: string;
-        size: string;
-        search: string;
-        sortField: string;
-        sortDirection: string;
-        terms?: string[];
-        indices?: string[];
-        dataStreams?: string[];
-        showDataStreams: boolean;
+      const { from, size } = request.query as {
+        from: number;
+        size: number;
       };
 
+      const { index } = request.params as { index: string };
+      let params = {
+        index: index,
+        from: from,
+        size: size,
+        body: JSON.stringify(request.body),
+      };
       const { callAsCurrentUser: callWithRequest } = this.osDriver.asScoped(request);
-
-      const indicesResponse = await callWithRequest("search", {
-        index,
-        size: 10,
-        from: 0,
-        body: {
-          query: {
-            bool: {
-              must: [{ match: { FlightNum: { query: "9HY9SWR" } } }],
-            },
-          },
-        },
-      });
-
-      console.log("aaaaaaaaaaa", indicesResponse);
-
-      // _cat doesn't support pagination, do our own in server pagination to at least reduce network bandwidth
-      const fromNumber = parseInt(from, 10);
-      const sizeNumber = parseInt(size, 10);
-      const paginatedIndices = indicesResponse.hits.hits.slice(fromNumber, fromNumber + sizeNumber);
-
-      // NOTE: Cannot use response.ok due to typescript type checking
+      const searchResponse = await callWithRequest("search", params);
       return response.custom({
         statusCode: 200,
         body: {
           ok: true,
           response: {
-            results: paginatedIndices.map((i) => i._source),
-            totalResults: indicesResponse.hits.total.value,
+            results: searchResponse.hits.hits.map((i) => i._source),
+            totalResults: searchResponse.hits.total.value,
           },
         },
       });
     } catch (err) {
-      // Throws an error if there is no index matching pattern
       if (err.statusCode === 404 && err.body.error.type === "index_not_found_exception") {
         return response.custom({
           statusCode: 200,
@@ -272,7 +249,7 @@ export default class IndexService {
           },
         });
       }
-      console.error("Index Management - IndexService - searchIndexData:", err);
+      console.error("Index Management - TransformService - searchSampleData", err);
       return response.custom({
         statusCode: 200,
         body: {
