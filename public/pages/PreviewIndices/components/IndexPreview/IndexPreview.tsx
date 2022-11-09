@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from "react";
-import { EuiDataGrid } from "@elastic/eui";
+import { EuiDataGrid, EuiDataGridColumn } from "@elastic/eui";
 
-interface DefineTransformsProps {
-  columns: { id: string }[];
+interface IndexPreviewProps {
+  columns: EuiDataGridColumn[];
   raw_data: any[];
 }
 
-export default ({ columns, raw_data }: DefineTransformsProps) => {
+export default ({ columns, raw_data }: IndexPreviewProps) => {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
   const onChangeItemsPerPage = useCallback(
     (pageSize) =>
@@ -31,6 +31,7 @@ export default ({ columns, raw_data }: DefineTransformsProps) => {
 
   return (
     <EuiDataGrid
+      aria-labelledby="Index preview"
       columns={columns}
       columnVisibility={{ visibleColumns, setVisibleColumns }}
       rowCount={raw_data ? raw_data.length : 0}

@@ -4,7 +4,6 @@
  */
 
 import React, { Component } from "react";
-import _ from "lodash";
 import { RouteComponentProps } from "react-router-dom";
 import { ContentPanel } from "../../../../components/ContentPanel";
 import IndexService from "../../../../services/IndexService";
@@ -12,26 +11,27 @@ import RollupService from "../../../../services/RollupService";
 import { BREADCRUMBS } from "../../../../utils/constants";
 import { getErrorMessage } from "../../../../utils/helpers";
 import { CoreServicesContext } from "../../../../components/core_services";
-import { EuiComboBox, EuiFlexGroup, EuiFlexItem, EuiSearchBar, Query } from "@elastic/eui";
+import { EuiComboBox, EuiFlexGroup, EuiFlexItem, EuiSearchBar, Query, ArgsWithQuery, ArgsWithError } from "@elastic/eui";
 import { FieldItem } from "../../../../../models/interfaces";
 import IndexPreview from "../../components/IndexPreview";
 import { parseFieldOptions, compareFieldItem } from "../../utils/helpers";
+import { EuiComboBoxOptionOption } from "@opensearch-project/oui";
 
 interface IndicesProps extends RouteComponentProps {
   indexService: IndexService;
   rollupService: RollupService;
 }
 
-interface IndicesState {
-  isLoading?: boolean;
-  indices?: { label: string; value: string }[];
-  sourceIndex?: { label: string; value: string }[];
-  columns: any[];
-  raw_data: any[];
+interface ColumnInfo {
+  id: string;
+}
 
-  mappings: any[];
-  fields: any[];
-  allMappings: any[];
+interface IndicesState {
+  indices?: { label: string; value: string }[];
+  sourceIndex?: EuiComboBoxOptionOption<string>[];
+  columns: ColumnInfo[];
+  raw_data?: unknown[];
+  query?: Query;
 }
 
 const returnLimit = 500;
@@ -42,28 +42,21 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     super(props);
 
     this.state = {
-      isLoading: false,
       indices: [],
       columns: [],
       raw_data: [],
-
-      mappings: [],
-      fields: [],
-      allMappings: [],
-
       query: Query.parse(""),
     };
-
-    this.getIndices = _.debounce(this.getIndices, 500, { leading: true });
   }
 
   async componentDidMount() {
+    console.log("componentDidMount");
     this.context.chrome.setBreadcrumbs([BREADCRUMBS.INDEX_MANAGEMENT, BREADCRUMBS.INDICES]);
     await this.getIndices();
   }
 
   getIndices = async (): Promise<void> => {
-    this.setState({ isLoading: true });
+    console.log("getIndices");
     try {
       const { indexService } = this.props;
 
@@ -79,7 +72,6 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
       if (getIndicesResponse.ok) {
         const { indices } = getIndicesResponse.response;
         this.setState({
-          isLoading: false,
           indices: indices.map((i) => ({ label: i.index, value: i.index })),
         });
       } else {
@@ -90,8 +82,9 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     }
   };
 
-  mapDataToTable = (data: unknown[], columns: any[]) => {
-    const raw_data = [];
+  mapDataToTable = (data: { [key: string]: unknown }[], columns: ColumnInfo[]) => {
+    console.log("mapDataToTable");
+    const raw_data: Array<unknown> = [];
 
     if (!data || data.length == 0) {
       return raw_data;
@@ -107,39 +100,69 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     return raw_data;
   };
 
-  onIndexChange = async (value) => {
+  parseColumns = (mappings: any): ColumnInfo[] => {
+    console.log("parseColumns");
+    let allMappings: FieldItem[][] = [];
+    //Push mappings array to allMappings 2D array first
+    for (let index in mappings) {
+      allMappings.push(parseFieldOptions("", mappings[index].mappings.properties));
+    }
+    //Find intersect from all mappings
+    const fields = allMappings.reduce((mappingA, mappingB) =>
+      mappingA.filter((itemA) => mappingB.some((itemB) => compareFieldItem(itemA, itemB)))
+    );
+
+    const columns = fields.map((field) => ({
+      id: field.label,
+    }));
+
+    return columns;
+  };
+
+  getData = async (srcIndex: string, columns: ColumnInfo[], query?: object) => {
+    console.log("getData");
+    const { indexService } = this.props;
+
+    try {
+      const searchIndexResponse = await indexService.searchIndexData(
+        srcIndex,
+        {
+          from: 0,
+          size: returnLimit,
+        },
+        query ? { query } : {}
+      );
+
+      if (searchIndexResponse.ok) {
+        return this.mapDataToTable(searchIndexResponse.response.results, columns);
+      } else {
+        this.context.notifications.toasts.addDanger(searchIndexResponse.error);
+      }
+    } catch (err) {
+      this.context.notifications.toasts.addDanger(getErrorMessage(err, "There was a problem loading data"));
+    }
+  };
+
+  onIndexChange = async (value: Array<EuiComboBoxOptionOption<string>>) => {
+    console.log("onIndexChange");
+    if (value.length === 0) {
+      return;
+    }
+
     const srcIndex = value[0].value;
 
-    if (!srcIndex.length) return;
+    if (!srcIndex) {
+      return;
+    }
+
     try {
-      const { rollupService, indexService } = this.props;
+      const { rollupService } = this.props;
+
       const response = await rollupService.getMappings(srcIndex);
       if (response.ok) {
-        let allMappings: FieldItem[][] = [];
-        const mappings = response.response;
-        //Push mappings array to allMappings 2D array first
-        for (let index in mappings) {
-          allMappings.push(parseFieldOptions("", mappings[index].mappings.properties));
-        }
-        //Find intersect from all mappings
-        const fields = allMappings.reduce((mappingA, mappingB) =>
-          mappingA.filter((itemA) => mappingB.some((itemB) => compareFieldItem(itemA, itemB)))
-        );
+        const columns = this.parseColumns(response.response);
 
-        const columns = fields.map((field) => ({
-          id: field.label,
-        }));
-
-        const searchIndexResponse = await indexService.searchIndexData(
-          srcIndex,
-          {
-            from: 0,
-            size: returnLimit,
-          },
-          {}
-        );
-
-        const raw_data = this.mapDataToTable(searchIndexResponse.response.results, columns);
+        const raw_data = await this.getData(srcIndex, columns);
 
         this.setState({ columns, raw_data, sourceIndex: value });
       } else {
@@ -150,39 +173,29 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     }
   };
 
-  onSearchChange = async ({ query, error }): void => {
+  onSearchChange = async ({ query, error }: ArgsWithQuery | ArgsWithError): Promise<void> => {
+    console.log("onSearchChange");
     if (error) {
       return;
     }
 
     const q = EuiSearchBar.Query.toESQuery(query);
 
-    const { indexService } = this.props;
     const { sourceIndex, columns } = this.state;
 
-    if (sourceIndex && query) {
-      const searchIndexResponse = await indexService.searchIndexData(
-        sourceIndex[0].value,
-        {
-          from: 0,
-          size: returnLimit,
-        },
-        {
-          query: q,
-        }
-      );
+    if (sourceIndex && sourceIndex.length > 0 && sourceIndex[0].value && columns) {
+      const raw_data = await this.getData(sourceIndex[0].value, columns, q);
 
-      const raw_data = this.mapDataToTable(searchIndexResponse.response.results, columns);
       this.setState({ raw_data });
     }
   };
 
   render() {
-    const { isLoading, indices, columns, raw_data, sourceIndex } = this.state;
+    const { indices, columns, raw_data, sourceIndex } = this.state;
 
     let fields = {};
 
-    columns.forEach((column) => {
+    columns?.forEach((column) => {
       fields = { ...fields, [column.id]: { type: "string" } };
     });
 
@@ -202,7 +215,6 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
                 onChange={this.onIndexChange}
                 singleSelection={{ asPlainText: true }}
                 selectedOptions={sourceIndex}
-                isLoading={isLoading}
               />
             </EuiFlexItem>
             <EuiFlexItem>
