@@ -24,6 +24,7 @@ interface IndicesProps extends RouteComponentProps {
 
 interface ColumnInfo {
   id: string;
+  type: string;
 }
 
 interface IndicesState {
@@ -34,7 +35,7 @@ interface IndicesState {
   query?: Query;
 }
 
-const returnLimit = 500;
+const returnLimit = 1000;
 
 export default class Indices extends Component<IndicesProps, IndicesState> {
   static contextType = CoreServicesContext;
@@ -112,9 +113,14 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
       mappingA.filter((itemA) => mappingB.some((itemB) => compareFieldItem(itemA, itemB)))
     );
 
-    const columns = fields.map((field) => ({
-      id: field.label,
-    }));
+    const columns = fields
+      .filter((f) => f.type === "keyword")
+      .map((field) => {
+        return {
+          id: field.label,
+          type: "string",
+        };
+      });
 
     return columns;
   };
@@ -204,7 +210,7 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     let fields = {};
 
     columns?.forEach((column) => {
-      fields = { ...fields, [column.id]: { type: "string" } };
+      fields = { ...fields, [column.id]: { type: column.type } };
     });
 
     const schema = {

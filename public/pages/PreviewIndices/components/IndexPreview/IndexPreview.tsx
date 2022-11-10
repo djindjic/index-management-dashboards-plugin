@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { EuiDataGrid, EuiDataGridColumn } from "@elastic/eui";
 
 interface IndexPreviewProps {
@@ -28,6 +28,13 @@ export default ({ columns, raw_data }: IndexPreviewProps) => {
   );
 
   const [visibleColumns, setVisibleColumns] = useState(columns.map(({ id }) => id));
+
+  useEffect(() => {
+    console.log("columns or raw_data changed");
+    setVisibleColumns(columns.map(({ id }) => id));
+    setPagination({ pageIndex: 0, pageSize: 10 });
+    setSortingColumns([]);
+  }, [columns, raw_data]);
 
   return (
     <EuiDataGrid
