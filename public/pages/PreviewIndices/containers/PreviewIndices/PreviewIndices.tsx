@@ -11,11 +11,98 @@ import RollupService from "../../../../services/RollupService";
 import { BREADCRUMBS } from "../../../../utils/constants";
 import { getErrorMessage } from "../../../../utils/helpers";
 import { CoreServicesContext } from "../../../../components/core_services";
-import { EuiComboBox, EuiComboBoxOptionOption, EuiFlexGroup, EuiFlexItem, EuiSearchBar, Query } from "@elastic/eui";
+import { EuiComboBox, EuiComboBoxOptionOption, EuiFlexGroup, EuiFlexItem, EuiSearchBar, EuiText, EuiToolTip, Query } from "@elastic/eui";
+import { SchemaType } from "@elastic/eui/src/components/search_bar/search_box";
 import { FieldItem } from "../../../../../models/interfaces";
 import { OnSearchChangeArgs } from "../../../../../public/models/interfaces";
 import IndexPreview from "../../components/IndexPreview";
 import { parseFieldOptions, compareFieldItem } from "../../utils/helpers";
+
+const mapDataToTable = (data: { [key: string]: unknown }[], columns: ColumnInfo[]) => {
+  console.log("mapDataToTable");
+  const raw_data: Array<unknown> = [];
+
+  if (!data || data.length == 0) {
+    return raw_data;
+  }
+
+  for (let i = 0; i < data.length; i++) {
+    let row = {};
+    columns.forEach((column) => {
+      row = { ...row, [column.id]: data[i][column.id] };
+    });
+    raw_data.push(row);
+  }
+  return raw_data;
+};
+
+const parseColumns = (mappings: any): ColumnInfo[] => {
+  console.log("parseColumns");
+  let allMappings: FieldItem[][] = [];
+  //Push mappings array to allMappings 2D array first
+  for (let index in mappings) {
+    allMappings.push(parseFieldOptions("", mappings[index].mappings.properties));
+  }
+  //Find intersect from all mappings
+  const fields = allMappings.reduce((mappingA, mappingB) =>
+    mappingA.filter((itemA) => mappingB.some((itemB) => compareFieldItem(itemA, itemB)))
+  );
+
+  console.log(fields);
+
+  const columns = fields
+    .filter((f) => f.type === "keyword" || f.type === "keyword" || f.type === "text")
+    .map((field) => {
+      return {
+        id: field.label,
+        type: "string",
+        display: (
+          <div>
+            <EuiToolTip content={field.label}>
+              <EuiText size="s">
+                <b>{field.label}</b>
+              </EuiText>
+            </EuiToolTip>
+          </div>
+        ),
+      };
+    });
+
+  // const columns = [];
+  // columns.push({
+  //   id: field.label,
+  //   display: isReadOnly ? (
+  //     <div>
+  //       <EuiToolTi content={field.label}>
+  //         <EuiText size="s">
+  //           <b>{field.label}</b>
+  //         </EuiText>
+  //       </EuiToolTi>
+  //     </div>
+  //   ) : (
+  //     <TransformOptions
+  //       name={field.label}
+  //       type={field.type}
+  //       selectedGroupField={selectedGroupField}
+  //       onGroupSelectionChange={onGroupSelectionChange}
+  //       aggList={aggList}
+  //       selectedAggregations={selectedAggregations}
+  //       onAggregationSelectionChange={onAggregationSelectionChange}
+  //     />
+  //   ),
+  //   schema: field.type,
+  //   path: field.path,
+  //   actions: {
+  //     showHide: false,
+  //     showMoveLeft: false,
+  //     showMoveRight: false,
+  //     showSortAsc: false,
+  //     showSortDesc: false,
+  //   },
+  // });
+
+  return columns;
+};
 
 interface IndicesProps extends RouteComponentProps {
   indexService: IndexService;
@@ -33,6 +120,7 @@ interface IndicesState {
   columns: ColumnInfo[];
   raw_data?: unknown[];
   query?: Query;
+  schema?: SchemaType;
 }
 
 const returnLimit = 1000;
@@ -83,48 +171,6 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     }
   };
 
-  mapDataToTable = (data: { [key: string]: unknown }[], columns: ColumnInfo[]) => {
-    console.log("mapDataToTable");
-    const raw_data: Array<unknown> = [];
-
-    if (!data || data.length == 0) {
-      return raw_data;
-    }
-
-    for (let i = 0; i < data.length; i++) {
-      let row = {};
-      columns.forEach((column) => {
-        row = { ...row, [column.id]: data[i][column.id] };
-      });
-      raw_data.push(row);
-    }
-    return raw_data;
-  };
-
-  parseColumns = (mappings: any): ColumnInfo[] => {
-    console.log("parseColumns");
-    let allMappings: FieldItem[][] = [];
-    //Push mappings array to allMappings 2D array first
-    for (let index in mappings) {
-      allMappings.push(parseFieldOptions("", mappings[index].mappings.properties));
-    }
-    //Find intersect from all mappings
-    const fields = allMappings.reduce((mappingA, mappingB) =>
-      mappingA.filter((itemA) => mappingB.some((itemB) => compareFieldItem(itemA, itemB)))
-    );
-
-    const columns = fields
-      .filter((f) => f.type === "keyword")
-      .map((field) => {
-        return {
-          id: field.label,
-          type: "string",
-        };
-      });
-
-    return columns;
-  };
-
   getData = async (srcIndex: string, columns: ColumnInfo[], query?: object) => {
     console.log("getData");
     const { indexService } = this.props;
@@ -140,7 +186,7 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
       );
 
       if (searchIndexResponse.ok) {
-        return this.mapDataToTable(searchIndexResponse.response.results, columns);
+        return mapDataToTable(searchIndexResponse.response.results, columns);
       } else {
         this.context.notifications.toasts.addDanger(searchIndexResponse.error);
       }
@@ -156,7 +202,7 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
 
       const response = await rollupService.getMappings(srcIndex);
       if (response.ok) {
-        const columns = this.parseColumns(response.response);
+        const columns = parseColumns(response.response);
 
         return columns;
       } else {
@@ -184,7 +230,18 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     const columns = await this.getColumns(srcIndex);
     const raw_data = await this.getData(srcIndex, columns);
 
-    this.setState({ columns, raw_data, sourceIndex: value });
+    let fields = {};
+
+    columns?.forEach((column) => {
+      fields = { ...fields, [column.id]: { type: column.type } };
+    });
+
+    const schema = {
+      strict: true,
+      fields,
+    };
+
+    this.setState({ columns, raw_data, sourceIndex: value, schema });
   };
 
   onSearchChange = async ({ query, error }: OnSearchChangeArgs): Promise<void> => {
@@ -205,18 +262,7 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
   };
 
   render() {
-    const { indices, columns, raw_data, sourceIndex } = this.state;
-
-    let fields = {};
-
-    columns?.forEach((column) => {
-      fields = { ...fields, [column.id]: { type: column.type } };
-    });
-
-    const schema = {
-      strict: true,
-      fields,
-    };
+    const { indices, columns, raw_data, sourceIndex, schema } = this.state;
 
     return (
       <div>
