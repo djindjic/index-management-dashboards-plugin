@@ -143,6 +143,26 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     }
   };
 
+  getColumns = async (srcIndex: string): Promise<ColumnInfo[]> => {
+    console.log("getColumns");
+    try {
+      const { rollupService } = this.props;
+
+      const response = await rollupService.getMappings(srcIndex);
+      if (response.ok) {
+        const columns = this.parseColumns(response.response);
+
+        return columns;
+      } else {
+        this.context.notifications.toasts.addDanger(`Could not load fields: ${response.error}`);
+      }
+    } catch (err) {
+      this.context.notifications.toasts.addDanger(getErrorMessage(err, "Could not load fields"));
+    }
+
+    return [];
+  };
+
   onIndexChange = async (value: Array<EuiComboBoxOptionOption<string>>) => {
     console.log("onIndexChange");
     if (value.length === 0) {
@@ -155,22 +175,10 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
       return;
     }
 
-    try {
-      const { rollupService } = this.props;
+    const columns = await this.getColumns(srcIndex);
+    const raw_data = await this.getData(srcIndex, columns);
 
-      const response = await rollupService.getMappings(srcIndex);
-      if (response.ok) {
-        const columns = this.parseColumns(response.response);
-
-        const raw_data = await this.getData(srcIndex, columns);
-
-        this.setState({ columns, raw_data, sourceIndex: value });
-      } else {
-        this.context.notifications.toasts.addDanger(`Could not load fields: ${response.error}`);
-      }
-    } catch (err) {
-      this.context.notifications.toasts.addDanger(getErrorMessage(err, "Could not load fields"));
-    }
+    this.setState({ columns, raw_data, sourceIndex: value });
   };
 
   onSearchChange = async ({ query, error }: ArgsWithQuery | ArgsWithError): Promise<void> => {
