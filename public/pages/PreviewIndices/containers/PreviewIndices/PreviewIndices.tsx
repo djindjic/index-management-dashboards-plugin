@@ -11,11 +11,11 @@ import RollupService from "../../../../services/RollupService";
 import { BREADCRUMBS } from "../../../../utils/constants";
 import { getErrorMessage } from "../../../../utils/helpers";
 import { CoreServicesContext } from "../../../../components/core_services";
-import { EuiComboBox, EuiFlexGroup, EuiFlexItem, EuiSearchBar, Query, ArgsWithQuery, ArgsWithError } from "@elastic/eui";
+import { EuiComboBox, EuiComboBoxOptionOption, EuiFlexGroup, EuiFlexItem, EuiSearchBar, Query } from "@elastic/eui";
 import { FieldItem } from "../../../../../models/interfaces";
+import { OnSearchChangeArgs } from "../../../../../public/models/interfaces";
 import IndexPreview from "../../components/IndexPreview";
 import { parseFieldOptions, compareFieldItem } from "../../utils/helpers";
-import { EuiComboBoxOptionOption } from "@opensearch-project/oui";
 
 interface IndicesProps extends RouteComponentProps {
   indexService: IndexService;
@@ -181,7 +181,7 @@ export default class Indices extends Component<IndicesProps, IndicesState> {
     this.setState({ columns, raw_data, sourceIndex: value });
   };
 
-  onSearchChange = async ({ query, error }: ArgsWithQuery | ArgsWithError): Promise<void> => {
+  onSearchChange = async ({ query, error }: OnSearchChangeArgs): Promise<void> => {
     console.log("onSearchChange");
     if (error) {
       return;
